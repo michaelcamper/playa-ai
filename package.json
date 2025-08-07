@@ -8,8 +8,10 @@
     "dev:watch": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "proto": "buf generate protos -o src/speech/proto"
+    "start": "pnpm start:riva & pnpm start:node",
+    "start:node": "node dist/index.js",
+    "start:riva": "bash scripts/start-riva.sh",
+    "generate:proto": "buf generate protos -o src/speech/proto"
   },
   "keywords": [],
   "author": "",

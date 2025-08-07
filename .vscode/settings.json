@@ -1,0 +1,7 @@
+{
+  "npm.packageManager": "pnpm",
+  "terminal.integrated.env.linux": {
+    "PATH": "/home/jetson/.nvm/versions/node/v20.19.4/bin:${env:PATH}",
+    "NVM_DIR": "/home/jetson/.nvm"
+  }
+}
