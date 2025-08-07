@@ -1,0 +1,18 @@
+version: v1
+plugins:
+  # plain JS output
+  - name: js
+    out: .
+    opt: import_style=commonjs,binary          # protoc finds protoc-gen-js automatically
+
+  # gRPC-JS service stubs (point at the node plugin)
+  - name: grpc
+    path: ./node_modules/.bin/grpc_tools_node_protoc_plugin
+    out: .
+    opt: grpc_js
+
+  # TypeScript declarations (your protoc-gen-ts binary)
+  - name: ts
+    path: ./node_modules/.bin/protoc-gen-ts
+    out: .
+    opt: grpc_js

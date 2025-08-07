@@ -1,0 +1,20 @@
+{
+  "plugins": [
+    "@ianvs/prettier-plugin-sort-imports"
+  ],
+  "tailwindFunctions": ["cn", "cva"],
+  "importOrder": [
+    "<TYPES>",
+    "<THIRD_PARTY_MODULES>",
+    "",
+    "<TYPES>^@/",
+    "^@/(.*)$",
+    "",
+    "<TYPES>^[.|..|~]",
+    "^~/",
+    "^[../]",
+    "^[./]"
+  ],
+  "importOrderParserPlugins": ["typescript", "jsx", "decorators-legacy"],
+  "importOrderTypeScriptVersion": "4.4.0"
+}
