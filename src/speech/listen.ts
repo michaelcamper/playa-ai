@@ -1,56 +1,98 @@
 import * as grpc from "@grpc/grpc-js";
+import { catchError, EMPTY, tap } from "rxjs";
 
-import { RivaSpeechRecognitionClient } from "./proto/riva_asr_grpc_pb";
+import type { MicrophoneConfig } from "../io/microphone";
+import { MicrophoneObservable } from "../io/microphone";
 import {
   RecognitionConfig,
+  RivaSpeechRecognitionClient,
   StreamingRecognitionConfig,
   StreamingRecognizeRequest,
-} from "./proto/riva_asr_pb";
-import { AudioEncoding } from "./proto/riva_audio_pb";
+  StreamingRecognizeResponse,
+} from "./proto/riva_asr";
+import { AudioEncoding } from "./proto/riva_audio";
 
 const asr = new RivaSpeechRecognitionClient(
   "localhost:50051",
   grpc.credentials.createInsecure(),
 );
 
-const recognitionConfig = new RecognitionConfig();
-recognitionConfig.setEncoding(AudioEncoding.LINEAR_PCM);
-recognitionConfig.setSampleRateHertz(16_000);
-recognitionConfig.setLanguageCode("en-US");
+const recognitionConfig: RecognitionConfig = {
+  encoding: AudioEncoding.LINEAR_PCM,
+  sampleRateHertz: 16_000,
+  languageCode: "en-US",
+  maxAlternatives: 1,
+  profanityFilter: false,
+  speechContexts: [],
+  audioChannelCount: 1,
+  enableWordTimeOffsets: false,
+  enableAutomaticPunctuation: true,
+  enableSeparateRecognitionPerChannel: false,
+  model: "",
+  verbatimTranscripts: false,
+  customConfiguration: {},
+};
 
-const streamingConfig = new StreamingRecognitionConfig();
-streamingConfig.setConfig(recognitionConfig);
-streamingConfig.setInterimResults(true);
+const streamingConfig: StreamingRecognitionConfig = {
+  config: recognitionConfig,
+  interimResults: true,
+};
 
-export const listen = async (): Promise<string> => {
+export const listen = async (options?: MicrophoneConfig): Promise<string> => {
   return new Promise((resolve, reject) => {
     const stream = asr.streamingRecognize();
-
-    const streamRecognizeRequest = new StreamingRecognizeRequest();
-
-    streamRecognizeRequest.setStreamingConfig(streamingConfig);
+    let isResolved = false;
+    const finalSegments: string[] = [];
+    const streamRecognizeRequest: StreamingRecognizeRequest = {
+      streamingConfig,
+    };
 
     stream.write(streamRecognizeRequest);
 
-    // stream microphone bytes here
-    // mic.on('data', (chunk) => stream.write({ audioContent: chunk }));
+    const micStream$ = new MicrophoneObservable(options).pipe(
+      tap((chunk) => {
+        stream.write({ audioContent: chunk });
+      }),
+      catchError((err) => {
+        stream.destroy(err);
+        return EMPTY;
+      }),
+    );
 
-    stream.on("data", (resp) => {
-      const result = resp.getResultsList()[0];
-      const alt = result?.getAlternativesList()[0];
-      if (alt) {
-        console.log(
-          `[${result.getIsFinal() ? "FINAL" : "partial"}] ${alt.getTranscript()}`,
-        );
+    const micSubscription = micStream$.subscribe({
+      complete: () => {
+        stream.end();
+      },
+    });
+
+    stream.on("data", ({ results }: StreamingRecognizeResponse) => {
+      if (!results || results.length === 0) return;
+
+      // Collect any final transcripts; do not resolve yet
+      for (const r of results) {
+        if (r.isFinal) {
+          const text = r.alternatives?.[0]?.transcript?.trim();
+          if (text && text.length > 0) {
+            finalSegments.push(text);
+          }
+        }
       }
     });
 
     stream.on("error", (err) => {
-      reject(err);
+      micSubscription.unsubscribe();
+      if (!isResolved) {
+        isResolved = true;
+        reject(err);
+      }
     });
 
     stream.on("end", () => {
-      resolve("");
+      micSubscription.unsubscribe();
+      if (!isResolved) {
+        isResolved = true;
+        resolve(finalSegments.join(" "));
+      }
     });
   });
 };

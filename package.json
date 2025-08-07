@@ -20,7 +20,8 @@
     "@grpc/grpc-js": "^1.13.4",
     "@grpc/proto-loader": "^0.8.0",
     "google-protobuf": "^3.21.4",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "webrtcvad": "^1.0.1"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.56.0",

@@ -1,18 +1,15 @@
 version: v1
 plugins:
-  # plain JS output
-  - name: js
-    out: .
-    opt: import_style=commonjs,binary          # protoc finds protoc-gen-js automatically
+  # --- REMOVE 'js' and 'grpc' plugins -----------------
+  # They create .js stubs you no longer need.
 
-  # gRPC-JS service stubs (point at the node plugin)
-  - name: grpc
-    path: ./node_modules/.bin/grpc_tools_node_protoc_plugin
-    out: .
-    opt: grpc_js
-
-  # TypeScript declarations (your protoc-gen-ts binary)
+  # --- PURE TS output with ts-proto -------------------
   - name: ts
-    path: ./node_modules/.bin/protoc-gen-ts
-    out: .
-    opt: grpc_js
+    # path must point at the binary you just installed:
+    path: ./node_modules/.bin/protoc-gen-ts_proto
+    out: . # wherever you want the .ts files
+    opt:
+      - outputServices=grpc-js, # gRPC-JS style service classes
+      - esModuleInterop=true, # import style
+      - useOptionals=true, # nicer `field?: Type`
+      - env=node # emit Node-friendly code

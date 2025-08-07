@@ -1,29 +1,33 @@
 import * as grpc from "@grpc/grpc-js";
 
-import { ALSAAudioStream } from "./audio-stream";
-import { AudioEncoding } from "./proto/riva_audio_pb";
-import { RivaSpeechSynthesisClient } from "./proto/riva_tts_grpc_pb";
-import { SynthesizeSpeechRequest } from "./proto/riva_tts_pb";
+import { SpeakerStream } from "../io/speaker";
+import { AudioEncoding } from "./proto/riva_audio";
+import {
+  RivaSpeechSynthesisClient,
+  SynthesizeSpeechRequest,
+} from "./proto/riva_tts";
 
 const tts = new RivaSpeechSynthesisClient(
   "localhost:50051",
   grpc.credentials.createInsecure(),
 );
 
-export function speak(text: string, audioDevice?: string): Promise<void> {
-  const req = new SynthesizeSpeechRequest();
-  req.setText(text);
-  req.setLanguageCode("en-US");
-  req.setEncoding(AudioEncoding.LINEAR_PCM);
-  req.setSampleRateHz(ALSAAudioStream.SAMPLE_RATE);
+export function speak(text: string): Promise<void> {
+  const req: SynthesizeSpeechRequest = {
+    text,
+    languageCode: "en-US",
+    encoding: AudioEncoding.LINEAR_PCM,
+    sampleRateHz: SpeakerStream.SAMPLE_RATE,
+    voiceName: "",
+  };
 
   return new Promise((resolve, reject) => {
-    const audioStream = new ALSAAudioStream(audioDevice);
+    const audioStream = new SpeakerStream();
     const stream = tts.synthesizeOnline(req);
 
-    stream.on("data", (chunk) => {
-      const buffer = Buffer.from(chunk.getAudio_asU8());
-      if (!audioStream.write(buffer)) {
+    stream.on("data", ({ audio }) => {
+      const hasWritten = audioStream.write(audio);
+      if (!hasWritten) {
         stream.pause();
         audioStream.once("drain", () => stream.resume());
       }
