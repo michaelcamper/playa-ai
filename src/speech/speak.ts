@@ -1,6 +1,7 @@
+import { spawn } from "node:child_process";
 import * as grpc from "@grpc/grpc-js";
 
-import { SpeakerStream } from "../io/speaker";
+import type { SynthesizeSpeechResponse } from "./proto/riva_tts";
 import { AudioEncoding } from "./proto/riva_audio";
 import {
   RivaSpeechSynthesisClient,
@@ -17,32 +18,52 @@ export function speak(text: string): Promise<void> {
     text,
     languageCode: "en-US",
     encoding: AudioEncoding.LINEAR_PCM,
-    sampleRateHz: SpeakerStream.SAMPLE_RATE,
-    voiceName: "",
+    sampleRateHz: 44_100,
+    voiceName: "", // use default
   };
 
   return new Promise((resolve, reject) => {
-    const audioStream = new SpeakerStream();
-    const stream = tts.synthesizeOnline(req);
+    // FIXME first chunk is not played
+    const aplay = spawn("aplay", [
+      "--device=plughw:2,0",
+      "--format=S16_LE",
+      "--channels=1",
+      `--rate=${req.sampleRateHz}`,
+      "--file-type=raw",
+    ]);
 
-    stream.on("data", ({ audio }) => {
-      const hasWritten = audioStream.write(audio);
-      if (!hasWritten) {
-        stream.pause();
-        audioStream.once("drain", () => stream.resume());
+    aplay.stdin.on("error", (err) => {
+      reject(new Error(`aplay stdin error: ${err.message}`));
+    });
+
+    aplay.on("error", (err) => {
+      reject(new Error(`aplay failed to start: ${err.message}`));
+    });
+
+    aplay.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`aplay exited with code ${code}`));
       }
     });
 
-    stream.on("end", () => audioStream.end());
-    audioStream.on("close", () => resolve());
+    const ttsStream = tts.synthesizeOnline(req);
 
-    stream.on("error", (err) => {
-      audioStream.end();
-      reject(err);
+    ttsStream.on("data", ({ audio }: SynthesizeSpeechResponse) => {
+      const ok = aplay.stdin.write(audio);
+      if (!ok) {
+        ttsStream.pause();
+        aplay.stdin.once("drain", () => ttsStream.resume());
+      }
     });
 
-    audioStream.on("error", (err) => {
-      stream.destroy();
+    ttsStream.on("end", () => {
+      aplay.stdin.end();
+    });
+
+    ttsStream.on("error", (err) => {
+      aplay.stdin.end();
       reject(err);
     });
   });

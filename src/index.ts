@@ -1,18 +1,24 @@
-import { listen } from "./speech/listen";
+import dotenv from "dotenv";
+
+import { runMenu } from "./io/cli";
 import { speak } from "./speech/speak";
+import { welcomeAndRoute } from "./workflow/flow";
 
-// speak(`It was Tuesday, somewhere between noon and who-the-hell-cares, when Alex found the piano.
+dotenv.config();
 
-// He'd been biking aimlessly, already sunburned and crusted in alkaline dust, when he saw it standing in the middle of the open playa. A full upright, half-buried in sand, no shade, no sign, no explanation. Just there.
+async function main() {
+  // Start screen (simulates a physical start button). After user exits, show again.
+  // No timeout here: kiosk-style idle screen.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    await runMenu("Press Start to begin the Playa AI assistant:", [
+      { label: "Start Assistant", action: async () => welcomeAndRoute() },
+      { label: "Quit", action: async () => process.exit(0) },
+    ]);
+  }
+}
 
-// He stopped, dropped the bike, walked over, and pressed a key.`).then(() => {
-//   console.log("I have spoken");
-// });
-
-listen({
-  maxInitialSilenceMs: 5_000,
-  maxTrailingSilenceMs: 5_000,
-}).then((text) => {
-  console.log(text || "no speech detected");
-  process.exit(0);
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });

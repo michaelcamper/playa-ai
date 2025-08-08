@@ -1,6 +1,8 @@
 onlyBuiltDependencies:
-  - "@bufbuild/buf"
+  - '@bufbuild/buf'
   - esbuild
   - grpc-tools
   - protobufjs
   - speaker
+  - speaker-arm64
+  - webrtcvad
