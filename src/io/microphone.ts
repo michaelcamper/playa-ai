@@ -22,8 +22,8 @@ export interface MicrophoneConfig {
 }
 
 const DEFAULT_CONFIG: MicrophoneConfig = {
-  maxInitialSilenceMs: 2000,
-  maxTrailingSilenceMs: 800,
+  maxInitialSilenceMs: 10_000,
+  maxTrailingSilenceMs: 2_000,
 };
 
 /**

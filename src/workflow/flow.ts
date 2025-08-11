@@ -25,18 +25,20 @@ export async function runStoryCollectorMock(): Promise<void> {
 }
 
 export async function welcomeAndRoute(): Promise<void> {
-  activity("flow:welcome:start");
+  activity("flow", "welcome:start");
   await talk(
     "Welcome to the Playa AI assistant. You can ask for playa guidance, hear a story, or record your own story.",
     { retries: 2 },
   );
-  activity("flow:welcome:done");
+  activity("flow", "welcome:done");
 
   // Intent selection: CLI menu (if INTENT_CLI is set) or LLM-based classification via speech
   // Loop until a definitive action (guide/teller/collector) or exit
   let lastAction: "guide" | "teller" | "collector" | null = null;
   const useCli = /^(1|true|yes)$/i.test(process.env.INTENT_CLI ?? "");
-  activity("flow:intent_mode", { mode: useCli ? "cli" : "llm" });
+  activity("flow", "intent_mode", {
+    mode: useCli ? "cli" : "llm",
+  });
   if (useCli) {
     while (true) {
       const result = await runMenu(
@@ -62,42 +64,42 @@ export async function welcomeAndRoute(): Promise<void> {
       );
 
       if (result.status === "timeout") {
-        activity("flow:intent:timeout");
+        activity("flow", "intent:timeout");
         await speak("No response detected. I will be here when you return.");
         return;
       }
 
       const idx = result.selectedIndex ?? -1;
       if (idx === 3) {
-        activity("flow:intent:unclear");
+        activity("flow", "intent:unclear");
         await speak("Could you clarify what you want to do today?");
         continue; // show "Choose an intent:" again
       }
       if (idx === 4) {
-        activity("flow:intent:repeat_options");
+        activity("flow", "intent:repeat_options");
         await speak(
           "Available options are: Playa Guide, Story Teller, Story Collector, Unclear intent, Repeat options, or Exit.",
         );
         continue; // repeat menu
       }
       if (idx === 5) {
-        activity("flow:intent:exit");
+        activity("flow", "intent:exit");
         await speak("Goodbye. Stay safe on the playa!");
         return;
       }
 
       if (idx === 0) {
-        activity("flow:intent:guide");
+        activity("flow", "intent:guide");
         await runPlayaGuideMock();
         lastAction = "guide";
         break;
       } else if (idx === 1) {
-        activity("flow:intent:teller");
+        activity("flow", "intent:teller");
         await runStoryTellerMock();
         lastAction = "teller";
         break;
       } else if (idx === 2) {
-        activity("flow:intent:collector");
+        activity("flow", "intent:collector");
         await runStoryCollectorMock();
         lastAction = "collector";
         break;
@@ -105,41 +107,40 @@ export async function welcomeAndRoute(): Promise<void> {
     }
   } else {
     while (true) {
-      activity("flow:intent:ask");
       const utterance = await askAndListen("What would you like to do?");
-      activity("flow:intent:heard", { utterance });
+      // activity("flow", "intent:heard", { utterance });
       if (!utterance) {
         await speak("I didn't catch that. Please try again.");
         continue;
       }
       try {
-        activity("flow:intent:classify:start");
         const res = await classifyIntent(utterance);
-        activity("flow:intent:classify:result", res);
         if (res.intent === "unclear_intent") {
           await speak("Could you clarify what you want to do today?");
           continue;
         }
         if (res.intent === "playa_guide") {
-          activity("flow:intent:guide");
+          activity("flow", "intent:guide");
           await runPlayaGuideMock();
           lastAction = "guide";
           break;
         }
         if (res.intent === "story_teller") {
-          activity("flow:intent:teller");
+          activity("flow", "intent:teller");
           await runStoryTellerMock();
           lastAction = "teller";
           break;
         }
         if (res.intent === "story_collector") {
-          activity("flow:intent:collector");
+          activity("flow", "intent:collector");
           await runStoryCollectorMock();
           lastAction = "collector";
           break;
         }
       } catch (err) {
-        activity("flow:intent:classify:error", { error: String(err) });
+        activity("flow", "intent:classify:error", {
+          error: String(err),
+        });
         await speak("I had trouble understanding. Let's try again.");
         continue;
       }
@@ -154,7 +155,7 @@ export async function welcomeAndRoute(): Promise<void> {
         {
           label: "Repeat last action",
           action: async () => {
-            activity("flow:next:repeat", { lastAction });
+            activity("flow", "next:repeat", { lastAction });
             if (lastAction === "guide") await runPlayaGuideMock();
             if (lastAction === "teller") await runStoryTellerMock();
             if (lastAction === "collector") await runStoryCollectorMock();
@@ -163,7 +164,7 @@ export async function welcomeAndRoute(): Promise<void> {
         {
           label: "Choose another action",
           action: async () => {
-            activity("flow:next:another");
+            activity("flow", "next:another");
             await welcomeAndRoute();
           },
         },
@@ -173,7 +174,7 @@ export async function welcomeAndRoute(): Promise<void> {
     );
 
     if (again.status === "timeout") {
-      activity("flow:next:timeout");
+      activity("flow", "next:timeout");
       await speak("No response. Ending the session for now.");
       return;
     }

@@ -1,8 +1,6 @@
 import { stdin as input, stdout as output } from "node:process";
 import readline from "node:readline";
 
-import { activity } from "../utils/activity";
-
 export type MenuOption = {
   label: string;
   action: () => Promise<void> | void;
@@ -24,7 +22,6 @@ export async function runMenu(
 
   const rl = readline.createInterface({ input, output });
   try {
-    activity("menu:show", { title, count: options.length });
     output.write(`\n${title}\n`);
     options.forEach((opt, idx) => {
       output.write(`  [${idx + 1}] ${opt.label}\n`);
@@ -60,7 +57,6 @@ export async function runMenu(
 
     const idx = resultIdx as number;
     const chosen = options[idx];
-    activity("menu:select", { index: idx, label: chosen.label });
     await Promise.resolve(chosen.action());
     return { status: "executed", selectedIndex: idx };
   } finally {

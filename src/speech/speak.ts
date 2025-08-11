@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import * as grpc from "@grpc/grpc-js";
 
 import type { SynthesizeSpeechResponse } from "./proto/riva_tts";
+import { activity } from "../utils/activity";
 import { AudioEncoding } from "./proto/riva_audio";
 import {
   RivaSpeechSynthesisClient,
@@ -23,6 +24,7 @@ export function speak(text: string): Promise<void> {
   };
 
   return new Promise((resolve, reject) => {
+    activity("speak", "start", { text });
     // FIXME first chunk is not played
     const aplay = spawn("aplay", [
       "--device=plughw:2,0",
@@ -43,6 +45,7 @@ export function speak(text: string): Promise<void> {
     aplay.on("close", (code) => {
       if (code === 0) {
         resolve();
+        activity("speak", "done");
       } else {
         reject(new Error(`aplay exited with code ${code}`));
       }

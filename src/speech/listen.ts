@@ -42,7 +42,7 @@ const streamingConfig: StreamingRecognitionConfig = {
 export const listen = async (options?: MicrophoneConfig): Promise<string> => {
   // Create ASR stream only when called
   return new Promise((resolve, reject) => {
-    activity("listen:start", options);
+    activity("listen", "start", options);
     const stream = asr.streamingRecognize();
     let isResolved = false;
     const finalSegments: string[] = [];
@@ -68,7 +68,7 @@ export const listen = async (options?: MicrophoneConfig): Promise<string> => {
 
     const micSubscription = micStream$.subscribe({
       complete: () => {
-        activity("listen:mic_complete");
+        activity("listen", "mic_complete");
         stream.end();
       },
     });
@@ -82,7 +82,7 @@ export const listen = async (options?: MicrophoneConfig): Promise<string> => {
           const text = r.alternatives?.[0]?.transcript?.trim();
           if (text && text.length > 0) {
             finalSegments.push(text);
-            activity("listen:final_segment", { text });
+            activity("listen", "transcript", { text });
           }
         }
       }
@@ -92,7 +92,7 @@ export const listen = async (options?: MicrophoneConfig): Promise<string> => {
       micSubscription.unsubscribe();
       if (!isResolved) {
         isResolved = true;
-        activity("listen:error", { error: String(err) });
+        activity("listen", "error", { error: String(err) });
         reject(err);
       }
     });
@@ -101,7 +101,9 @@ export const listen = async (options?: MicrophoneConfig): Promise<string> => {
       micSubscription.unsubscribe();
       if (!isResolved) {
         isResolved = true;
-        activity("listen:end", { text: finalSegments.join(" ") });
+        activity("listen", "end", {
+          text: finalSegments.join(" "),
+        });
         resolve(finalSegments.join(" "));
       }
     });
