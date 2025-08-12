@@ -1,5 +1,6 @@
 onlyBuiltDependencies:
   - '@bufbuild/buf'
+  - epoll
   - esbuild
   - grpc-tools
   - protobufjs
