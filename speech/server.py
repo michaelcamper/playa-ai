@@ -159,8 +159,8 @@ async def record(payload: dict = Body(...)):
 
 def parse_args():
 	p = argparse.ArgumentParser()
-	# Allow overriding port via env var PORT
-	default_port = int(os.getenv("PORT", "8009"))
+	# Allow overriding port via env var SPEECH_PORT
+	default_port = int(os.getenv("SPEECH_PORT", "8009"))
 	p.add_argument("--port", type=int, default=default_port)
 	p.add_argument("--model_dir", type=str, default="/workspace/models/xtts_v2", help="Local dir for XTTS model snapshot")
 	p.add_argument("--output-device", type=int, default=None, help="ALSA device index for playback")
@@ -172,7 +172,7 @@ def parse_args():
 def main():
 	args = parse_args()
 	# Configure speaker output device if provided
-	out_dev_env = os.getenv("OUTPUT_DEVICE")
+	out_dev_env = os.getenv("SPEECH_DEVICE")
 	if out_dev_env is not None:
 		# allow numeric indices or string names
 		out_dev = None

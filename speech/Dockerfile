@@ -8,9 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 	DEFAULT_SPEAKER_WAV=/workspace/speech/speaker.wav \
 	PYTHONPATH=/workspace
 
-# Defaults for easy "docker run speech"
-ENV PORT=8009 DEV_RELOAD=0
-
+# Runtime environment variables (can be overridden from .env)
 # System dependencies for audio, builds, and Rust (for sudachipy)
 RUN apt-get update && \
 	apt-get install -y --no-install-recommends \
@@ -44,19 +42,20 @@ ENV DS_BUILD_AIO=1 \
 	DS_BUILD_SPARSE_ATTN=0 \
 	DS_BUILD_CUTLASS=1 \
 	CUTLASS_PATH=/opt/cutlass \
-	CFLAGS="-I/usr/local/include -I/usr/include -I/usr/include/aarch64-linux-gnu" \
-	LDFLAGS="-L/usr/local/lib -L/usr/lib/aarch64-linux-gnu -L/usr/lib" \
+	CFLAGS="-I/usr/include" \
+	LDFLAGS="-L/usr/lib/aarch64-linux-gnu" \
 	LD_LIBRARY_PATH="/usr/local/lib:/usr/lib/aarch64-linux-gnu:/usr/lib:${LD_LIBRARY_PATH}" \
 	TORCH_CUDA_ARCH_LIST="8.7" \
 	CUDA_HOME=/usr/local/cuda \
 	CUDACXX=/usr/local/cuda/bin/nvcc \
 	CMAKE_PREFIX_PATH=/usr/local \
 	CMAKE_BUILD_PARALLEL_LEVEL=2 \
-	MAX_JOBS=4 \
+	MAX_JOBS=6 \
 	TORCH_NVCC_FLAGS="-w" \
 	CXXFLAGS="-Wno-narrowing -w" \
 	WHISPER_MODEL_SIZE=small.en \
-	WHISPER_DOWNLOAD_ROOT=/workspace/models
+	WHISPER_DOWNLOAD_ROOT=/workspace/models \
+	TORCH_EXTENSIONS_DIR=/workspace/speech/.cache/torch_extensions_ds
 
 # Build and install CTranslate2 from source with CUDA support (sm_87)
 RUN git clone --branch v4.6.0 --depth 1 --recurse-submodules https://github.com/OpenNMT/CTranslate2.git /opt/ctranslate2 && \

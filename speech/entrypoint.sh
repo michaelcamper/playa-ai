@@ -17,6 +17,9 @@ export TORCH_NVCC_FLAGS="-w"
 export CXXFLAGS="-Wno-narrowing -w"
 export DEEPSPEED_BUILD_VERBOSE=0
 
+# Additional build environment variables
+export TORCH_EXTENSIONS_DIR="/workspace/speech/.cache/torch_extensions_ds"
+
 # Suppress warnings we can't fix
 export DS_SKIP_CUDA_CHECK=1
 export PYTHONWARNINGS="ignore::UserWarning:deepspeed,ignore::UserWarning:torch"
@@ -28,7 +31,6 @@ export SDL_AUDIODRIVER=alsa
 # Cache directories (use /tmp which is always writable)
 export HOME="${HOME:-/workspace/speech}"
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/workspace/speech/.cache}"
-export TORCH_EXTENSIONS_DIR="${TORCH_EXTENSIONS_DIR:-/workspace/speech/.cache/torch_extensions_ds}"
 export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-/workspace/speech/.cache/numba}"
 # Disable numba caching to avoid locator errors from librosa
 export NUMBA_DISABLE_CACHING=1

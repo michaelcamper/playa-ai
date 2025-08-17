@@ -24,10 +24,10 @@ COPY download_model.py /usr/local/bin/download_model.py
 RUN chmod +x /usr/local/bin/download_model.py
 RUN --mount=type=secret,id=envfile bash -lc 'set -e; set -a; [ -f /run/secrets/envfile ] && source /run/secrets/envfile || true; set +a; \
     [ -n "${LLM_MODEL_FILE}" ] || { echo "LLM_MODEL_FILE build-arg is required" >&2; exit 2; }; \
-    LLM_MODEL_FILE="${LLM_MODEL_FILE}" LLM_HF_REPO="${LLM_HF_REPO:-}" python3 /usr/local/bin/download_model.py'
+    MODEL_FILE="${LLM_MODEL_FILE}" HF_REPO="${LLM_HF_REPO:-}" python3 /usr/local/bin/download_model.py'
 
 
 
 # Run llama-server
-ENTRYPOINT ["/bin/bash", "-lc", "llama-server --host 0.0.0.0 --port ${SERVER_PORT} --model /models/${LLM_MODEL_FILE} --n-gpu-layers ${N_GPU_LAYERS} --ctx-size ${CONTEXT_SIZE} --threads ${NUM_THREADS} --embedding --alias local-llm"]
+ENTRYPOINT ["/bin/bash", "-lc", "llama-server --host ${LLM_HOST} --port ${LLM_PORT} --model /models/${LLM_MODEL_FILE} --n-gpu-layers ${LLM_N_GPU_LAYERS} --ctx-size ${LLM_CONTEXT_SIZE} --threads ${LLM_NUM_THREADS} --embedding --alias local-llm"]
 

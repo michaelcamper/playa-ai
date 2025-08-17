@@ -15,22 +15,6 @@ services:
       - audio
     env_file:
       - .env
-    environment:
-      - PORT=${SPEECH_PORT:-8009}
-      - DEV_RELOAD=0
-      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
-      - DS_BUILD_AIO=1
-      - CFLAGS=-I/usr/include
-      - LDFLAGS=-L/usr/lib/aarch64-linux-gnu
-      - DS_BUILD_SPARSE_ATTN=0
-      - DS_BUILD_CUTLASS=1
-      - CUTLASS_PATH=/opt/cutlass
-      - CXXFLAGS=-Wno-narrowing -w
-      - TORCH_NVCC_FLAGS=-w
-      - TORCH_CUDA_ARCH_LIST=8.7
-      - MAX_JOBS=6
-      - TORCH_EXTENSIONS_DIR=/workspace/speech/.cache/torch_extensions_ds
-      - OUTPUT_DEVICE=30
     volumes:
       - /home/jetson/playa-ai/speech:/workspace/speech
     restart: unless-stopped
@@ -42,18 +26,10 @@ services:
       dockerfile: /home/jetson/playa-ai/llm/Dockerfile
       secrets:
         - envfile
-      args:
-        - LLM_MODEL_FILE=${LLM_MODEL_FILE:-Phi-3-mini-3.8B-instruct.Q5_K_M.gguf}
-        - LLM_HF_REPO=${LLM_HF_REPO}
     container_name: llm
     network_mode: host
-    environment:
-      - SERVER_PORT=${LLM_PORT:-8080}
-      - N_GPU_LAYERS=${LLM_N_GPU_LAYERS:-35}
-      - CONTEXT_SIZE=${LLM_CONTEXT_SIZE:-4096}
-      - NUM_THREADS=${LLM_NUM_THREADS:-4}
-      - LLM_MODEL_FILE=${LLM_MODEL_FILE}
-      - LLM_HF_REPO=${LLM_HF_REPO}
+    env_file:
+      - .env
     restart: unless-stopped
 
 secrets:
