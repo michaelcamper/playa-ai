@@ -17,6 +17,9 @@ services:
       - .env
     volumes:
       - /home/jetson/playa-ai/speech:/workspace/speech
+    init: true
+    stop_signal: SIGTERM
+    stop_grace_period: 10s
     restart: unless-stopped
 
   llm:
@@ -30,6 +33,9 @@ services:
     network_mode: host
     env_file:
       - .env
+    init: true
+    stop_signal: SIGTERM
+    stop_grace_period: 10s
     restart: unless-stopped
 
 secrets:

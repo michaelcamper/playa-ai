@@ -14,7 +14,7 @@ RUN pip3 install --no-cache-dir huggingface_hub==0.25.2
 # Build llama.cpp
 RUN git clone --depth=1 https://github.com/ggerganov/llama.cpp.git /opt/llama.cpp && \
     cd /opt/llama.cpp && \
-    cmake -B build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release && \
+    cmake -B build -DGGML_CUDA=ON -DGGML_NATIVE=ON -DCMAKE_BUILD_TYPE=Release && \
     cmake --build build -j$(nproc) && \
     ln -sf /opt/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server
 
@@ -29,5 +29,6 @@ RUN --mount=type=secret,id=envfile bash -lc 'set -e; set -a; [ -f /run/secrets/e
 
 
 # Run llama-server
-ENTRYPOINT ["/bin/bash", "-lc", "llama-server --host ${LLM_HOST} --port ${LLM_PORT} --model /models/${LLM_MODEL_FILE} --n-gpu-layers ${LLM_N_GPU_LAYERS} --ctx-size ${LLM_CONTEXT_SIZE} --threads ${LLM_NUM_THREADS} --embedding --alias local-llm"]
+ENTRYPOINT ["llama-server"]
+CMD ["--host", "${LLM_HOST}", "--port", "${LLM_PORT}", "--model", "/models/${LLM_MODEL_FILE}", "--n-gpu-layers", "${LLM_N_GPU_LAYERS}", "--ctx-size", "${LLM_CONTEXT_SIZE}", "--threads", "${LLM_NUM_THREADS}", "--embedding", "--alias", "local-llm"]
 
