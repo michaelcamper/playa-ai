@@ -4,7 +4,7 @@ import "./env";
 
 import { hingeSwitch$ } from "./io/hinge";
 import { cleanupLangchain } from "./utils/cleanup";
-import { welcomeAndRoute } from "./workflow/flow";
+import { runMinimalFlow } from "./workflow/minimal-flow";
 
 // Graceful shutdown handling
 let isShuttingDown = false;
@@ -47,7 +47,7 @@ process.on("unhandledRejection", async (reason, promise) => {
 hingeSwitch$().subscribe(async (active) => {
   if (active) {
     open();
-    welcomeAndRoute();
+    runMinimalFlow();
   } else {
     close();
     await cleanupLangchain();

@@ -1,6 +1,7 @@
 import numpy as np
 import sounddevice as sd
 import webrtcvad
+import threading
 
 
 def capture(
@@ -8,6 +9,7 @@ def capture(
 	max_tail_silence_ms: int,
 	sample_rate: int = 16000,
 	frame_ms: int = 20,
+	shutdown_event: threading.Event = None,
 ) -> np.ndarray:
 	"""Capture a single VAD-gated utterance and return float32 mono in [-1, 1]."""
 	assert frame_ms in (10, 20, 30), "webrtcvad supports 10/20/30ms frames"
@@ -43,6 +45,10 @@ def capture(
 		device=_input_device,
 	) as stream:
 		while True:
+			# Check for shutdown event
+			if shutdown_event and shutdown_event.is_set():
+				return np.zeros((0,), dtype=np.float32)
+			
 			chunk, _ = stream.read(frame_len)
 			f32 = chunk.reshape(-1)
 			# convert to int16 bytes for VAD

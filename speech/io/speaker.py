@@ -78,9 +78,13 @@ def _get_queued_samples() -> int:
 		return _queued_samples
 
 
-def _wait_until_drain(poll_interval_s: float = 0.01, timeout_s: Optional[float] = None) -> None:
+def _wait_until_drain(poll_interval_s: float = 0.01, timeout_s: Optional[float] = None, shutdown_event: Optional[threading.Event] = None) -> None:
 	start = time.monotonic()
 	while True:
+		# Check for shutdown event
+		if shutdown_event and shutdown_event.is_set():
+			return
+		
 		if _get_queued_samples() <= 0:
 			return
 		if timeout_s is not None and (time.monotonic() - start) > timeout_s:
@@ -211,7 +215,7 @@ def play_wav(path: str) -> Dict[str, Any]:
 	for chunk in _iter_wav(path, 4096):
 		_enqueue(chunk)
 	# Block until drained, then release waiting feeder
-	_wait_until_drain()
+	_wait_until_drain(shutdown_event=_waiting_stop)
 	_idle_hold = False
 	return {"ok": True}
 
@@ -252,7 +256,7 @@ def play_stream(chunks: Iterable[np.ndarray]) -> Dict[str, Any]:
 			arr = arr.reshape(-1, arr.shape[-1])[:, 0]
 		_enqueue(arr.reshape(-1, 1))
 	# Block until drained, then release waiting feeder
-	_wait_until_drain()
+	_wait_until_drain(shutdown_event=_waiting_stop)
 	_idle_hold = False
 	return {"ok": True}
 
