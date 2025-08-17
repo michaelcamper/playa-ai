@@ -1,0 +1,15 @@
+version: v1
+plugins:
+  # --- REMOVE 'js' and 'grpc' plugins -----------------
+  # They create .js stubs you no longer need.
+
+  # --- PURE TS output with ts-proto -------------------
+  - name: ts
+    # path must point at the binary you just installed:
+    path: ./node_modules/.bin/protoc-gen-ts_proto
+    out: . # wherever you want the .ts files
+    opt:
+      - outputServices=grpc-js, # gRPC-JS style service classes
+      - esModuleInterop=true, # import style
+      - useOptionals=messages, # nicer `field?: Type`
+      - env=node # emit Node-friendly code

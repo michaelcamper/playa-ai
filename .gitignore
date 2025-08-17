@@ -1,2 +1,9 @@
 node_modules
 dist
+model_repository
+llama/models
+.venv
+__pycache__
+*.pid
+.cache
+.env
