@@ -21,24 +21,23 @@ export async function close(): Promise<void> {
 export async function speak(text: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/speak`, {
     method: "POST",
-    headers: { "Content-Type": "text/plain" },
     body: text,
   });
   if (!res.ok) {
-    const tx = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${tx}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
   }
 }
 
-export async function play(name: string): Promise<void> {
+export async function play(path: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/play`, {
     method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: name,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
   });
   if (!res.ok) {
-    const tx = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${tx}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
   }
 }
 
@@ -52,9 +51,10 @@ export async function generate(
     body: JSON.stringify({ name, text }),
   });
   if (!res.ok) {
-    const tx = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${tx}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
   }
+
   return (await res.json()) as { path: string };
 }
 
@@ -100,3 +100,15 @@ export const speechApi = {
   listen,
   record,
 };
+
+/**
+ * Cleanup function to ensure all speech operations are properly terminated
+ */
+export async function cleanupSpeech(): Promise<void> {
+  try {
+    // Close the speech API to stop any ongoing operations
+    await close();
+  } catch (error) {
+    console.error("Error cleaning up speech API:", error);
+  }
+}

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { env } from "../env";
 import { activity } from "../utils/activity";
+import { registerLangchainOperation, createAbortController, getActiveAbortController } from "../utils/cleanup";
 
 const intentEnum = z.enum([
   "playa_guide",
@@ -19,6 +20,10 @@ type IntentLabel = z.infer<typeof intentEnum>;
  */
 export async function classifyIntent(utterance: string): Promise<IntentLabel> {
   activity("intent", "classify", { utterance });
+  
+  // Create abort controller for this operation
+  const abortController = createAbortController();
+  
   const model = new ChatOpenAI({
     temperature: 0,
     configuration: {
@@ -27,7 +32,7 @@ export async function classifyIntent(utterance: string): Promise<IntentLabel> {
     },
   });
 
-  const result = await model.invoke(
+  const operation = model.invoke(
     [
       [
         "system",
@@ -45,19 +50,36 @@ export async function classifyIntent(utterance: string): Promise<IntentLabel> {
     ],
     {
       response_format: { type: "json_object" },
+      signal: abortController.signal,
     },
   );
 
-  const parsed = intentEnum.safeParse(result.content);
-  if (parsed.success) {
-    return parsed.data;
-  }
-
-  for (const intent of intentEnum.options) {
-    if (String(result.content).includes(intent)) {
-      return intent;
+  // Register the operation for cleanup tracking
+  const trackedOperation = registerLangchainOperation(operation);
+  
+  try {
+    const result = await trackedOperation;
+    
+    const parsed = intentEnum.safeParse(result.content);
+    if (parsed.success) {
+      return parsed.data;
     }
-  }
 
-  return "unclear_intent";
+    for (const intent of intentEnum.options) {
+      if (String(result.content).includes(intent)) {
+        return intent;
+      }
+    }
+
+    return "unclear_intent";
+  } catch (error) {
+    // Check if operation was aborted
+    if (error instanceof Error && error.name === 'AbortError') {
+      activity("intent", "classify:aborted");
+      throw new Error("Intent classification was interrupted");
+    }
+    
+    activity("intent", "classify:error", { error: String(error) });
+    throw error;
+  }
 }
