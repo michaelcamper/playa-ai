@@ -22,6 +22,7 @@
     "@langchain/langgraph": "^0.4.3",
     "@langchain/ollama": "^0.1.6",
     "@langchain/openai": "^0.3.17",
+    "@t3-oss/env-core": "^0.13.8",
     "dotenv": "^16.6.1",
     "google-protobuf": "^3.21.4",
     "rxjs": "^7.8.2",

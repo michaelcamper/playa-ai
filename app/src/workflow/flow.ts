@@ -1,7 +1,7 @@
-import { speak } from "../api/speech";
+import { listen, speak } from "../api/speech";
+import { env } from "../env";
 import { runMenu } from "../io/cli";
 import { classifyIntent } from "../llm/intent";
-import { listen } from "../deprecated/listen";
 import { activity } from "../utils/activity";
 
 // Mocked agent instruction speakers for Step 1
@@ -25,6 +25,7 @@ export async function runStoryCollectorMock(): Promise<void> {
 
 export async function welcomeAndRoute(): Promise<void> {
   activity("flow", "welcome:start");
+  await new Promise((resolve) => setTimeout(resolve, 2_000));
   await speak(
     "Welcome to the Playa AI assistant. You can ask for playa guidance, hear a story, or record your own story.",
   );
@@ -33,7 +34,7 @@ export async function welcomeAndRoute(): Promise<void> {
   // Intent selection: CLI menu (if INTENT_CLI is set) or LLM-based classification via speech
   // Loop until a definitive action (guide/teller/collector) or exit
   let lastAction: "guide" | "teller" | "collector" | null = null;
-  const useCli = /^(1|true|yes)$/i.test(process.env.INTENT_CLI ?? "");
+  const useCli = /^(1|true|yes)$/i.test(env.INTENT_CLI ?? "");
   activity("flow", "intent_mode", {
     mode: useCli ? "cli" : "llm",
   });
@@ -106,7 +107,10 @@ export async function welcomeAndRoute(): Promise<void> {
   } else {
     while (true) {
       await speak("What would you like to do?");
-      const utterance = await listen();
+      const utterance = await listen({
+        maxInitialSilence: 5_000,
+        maxTailSilence: 1_000,
+      });
       // activity("flow", "intent:heard", { utterance });
       if (!utterance) {
         await speak("I didn't catch that. Please try again.");

@@ -1,4 +1,6 @@
-const BASE_URL = process.env.SPEECH_BASE_URL || "http://localhost:8009";
+import { env } from "../env";
+
+const BASE_URL = `http://${env.SPEECH_HOST}:${env.SPEECH_PORT}`;
 
 export async function open(): Promise<void> {
   const res = await fetch(`${BASE_URL}/open`, { method: "POST" });
@@ -56,14 +58,14 @@ export async function generate(
   return (await res.json()) as { path: string };
 }
 
-export async function listen(
-  maxInitialSilence: number,
-  maxTailSilence: number,
-): Promise<string> {
+export async function listen(options: {
+  maxInitialSilence: number;
+  maxTailSilence: number;
+}): Promise<string> {
   const res = await fetch(`${BASE_URL}/listen`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ maxInitialSilence, maxTailSilence }),
+    body: JSON.stringify(options),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");

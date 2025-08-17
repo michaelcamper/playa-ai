@@ -1,8 +1,7 @@
-import type { Runnable } from "@langchain/core/runnables";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { ChatOpenAI } from "@langchain/openai";
 import { z } from "zod";
 
+import { env } from "../env";
 import { activity } from "../utils/activity";
 
 const intentEnum = z.enum([
@@ -21,10 +20,9 @@ type IntentLabel = z.infer<typeof intentEnum>;
 export async function classifyIntent(utterance: string): Promise<IntentLabel> {
   activity("intent", "classify", { utterance });
   const model = new ChatOpenAI({
-    model: process.env.LLAMA_MODEL,
     temperature: 0,
     configuration: {
-      baseURL: `http://${process.env.LLAMA_HOST}:${process.env.LLAMA_PORT}/v1`,
+      baseURL: `http://${env.LLM_HOST}:${env.LLM_PORT}/v1`,
       apiKey: "sk-no-key",
     },
   });

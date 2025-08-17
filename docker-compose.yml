@@ -16,7 +16,7 @@ services:
     env_file:
       - .env
     environment:
-      - PORT=8009
+      - PORT=${SPEECH_PORT:-8009}
       - DEV_RELOAD=0
       - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN:-}
       - DS_BUILD_AIO=1
@@ -48,7 +48,7 @@ services:
     container_name: llm
     network_mode: host
     environment:
-      - SERVER_PORT=8080
+      - SERVER_PORT=${LLM_PORT:-8080}
       - N_GPU_LAYERS=${LLM_N_GPU_LAYERS:-35}
       - CONTEXT_SIZE=${LLM_CONTEXT_SIZE:-4096}
       - NUM_THREADS=${LLM_NUM_THREADS:-4}

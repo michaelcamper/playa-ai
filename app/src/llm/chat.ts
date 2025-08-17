@@ -1,14 +1,13 @@
 import { ChatOpenAI } from "@langchain/openai";
 
+import { env } from "../env";
+
 export function buildChatModel(options?: { temperature?: number }) {
   return new ChatOpenAI({
-    model: process.env.LLAMA_MODEL || process.env.OLLAMA_MODEL || "llama",
     temperature: options?.temperature ?? 0.3,
     configuration: {
-      baseURL:
-        process.env.LLAMA_BASE_URL ||
-        `http://${process.env.LLAMA_HOST || "localhost"}:${process.env.LLAMA_PORT || "8080"}/v1`,
-      apiKey: process.env.OPENAI_API_KEY || "sk-no-key",
+      baseURL: `http://${env.LLM_HOST}:${env.LLM_PORT}/v1`,
+      apiKey: "sk-no-key",
     },
   });
 }
