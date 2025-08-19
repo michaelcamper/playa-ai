@@ -33,3 +33,16 @@ User: "No, not now."
 Assistant:
 { "message": "Then I shall wait, wanderer. When you are ready, I will ask again: will you share your story?", "confirmed": false }
 `.trim();
+
+export const STORY_STATUS_CLASSIFIER_PROMPT = `
+You are a classifier. The user has just been asked if their story is complete.
+Interpret their reply and return one of exactly three labels:
+
+- "finished" → if the user indicates their story is done, ended, complete, or they are finished.
+- "continue" → if the user indicates they want to keep telling their story, continue, add more, or are not done yet.
+- "unclear" → if the response is ambiguous, off-topic, or you cannot determine whether they are finished or not.
+
+Return only the single label, with no explanation or extra text.
+`.trim();
+
+export type StoryStatus = "finished" | "continue" | "unclear";
