@@ -72,7 +72,12 @@ def initialize(model_dir: str) -> None:
 			_spk_emb = None
 
 
-def stream(text: str, chunk_size: int = 128, language: str = "en") -> Generator[np.ndarray, None, None]:
+def stream(
+    text: str,
+    chunk_size: int = 128,
+    language: str = "en",
+    enable_text_splitting: Optional[bool] = None,
+) -> Generator[np.ndarray, None, None]:
 	"""Yield mono float32 chunks for the given text."""
 	if _model is None:
 		raise RuntimeError("XTTS not initialized")
@@ -89,13 +94,14 @@ def stream(text: str, chunk_size: int = 128, language: str = "en") -> Generator[
 		_spk_emb = lat["speaker_embedding"] if isinstance(lat, dict) else lat[1]
 
 	with torch.inference_mode():
+		split = (len(text) > 200) if enable_text_splitting is None else bool(enable_text_splitting)
 		for pcm in _model.inference_stream(
 			text=text,
 			gpt_cond_latent=_gpt_latent,
 			speaker_embedding=_spk_emb,
 			stream_chunk_size=chunk_size,
 			language=language,
-			enable_text_splitting=(len(text) > 200),
+			enable_text_splitting=split,
 		):
 			yield _chunk_to_mono_f32(pcm)
 
@@ -103,7 +109,8 @@ def stream(text: str, chunk_size: int = 128, language: str = "en") -> Generator[
 def synthesize_to_wav(text: str, out_path: str) -> dict:
 	"""Synthesize the text and write a 16-bit PCM WAV at out_path."""
 	chunks: list[np.ndarray] = []
-	for c in stream(text):
+	# For file generation requests, do not split text into sentences to preserve exact phrasing
+	for c in stream(text, enable_text_splitting=False):
 		chunks.append(c)
 	if not chunks:
 		return {"ok": False, "error": "no audio generated"}

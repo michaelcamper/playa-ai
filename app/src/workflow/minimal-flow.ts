@@ -1,12 +1,15 @@
+import { platform } from "node:os";
 import {
   AIMessage,
   HumanMessage,
   SystemMessage,
 } from "@langchain/core/messages";
 
-import { listen, speak } from "../api/speech";
+import type { KeeperReply } from "../llm/prompts";
+import { listen, play, speak } from "../api/speech";
 import { buildChatModel } from "../llm/chat";
-import { isWorkflowRunning } from "./state";
+import { KEEPER_SYSTEM_PROMPT } from "../llm/prompts";
+import { isWorkflowRunning, setWorkflowActive } from "./state";
 
 // Configuration for conversation context and analytics
 const CONVERSATION_CONFIG = {
@@ -20,16 +23,19 @@ export async function runMinimalFlow(): Promise<void> {
     // Set workflow as active
     setWorkflowActive(true);
 
+    if (!isWorkflowRunning()) {
+      return; // Exit if workflow was stopped before we even started
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
     // Welcome message
-    await speak("Hello! I'm your AI assistant. How can I help you today?");
+    await play("welcome.wav");
 
     // Create a simple chat model
     const llm = buildChatModel({ temperature: 0.7 });
 
     // Create the system message once (AI's role/instructions)
-    const systemMessage = new SystemMessage(
-      "You are a helpful AI assistant. Keep your responses concise and friendly.",
-    );
+    const systemMessage = new SystemMessage(KEEPER_SYSTEM_PROMPT);
 
     // Initialize conversation history
     const conversationHistory: Array<HumanMessage | AIMessage> = [];
@@ -38,13 +44,31 @@ export async function runMinimalFlow(): Promise<void> {
     // Simple conversation loop
     while (isWorkflowRunning()) {
       try {
+        // Check if workflow is still active before listening
+        if (!isWorkflowRunning()) {
+          console.log("Workflow stopped, exiting conversation loop");
+          return;
+        }
+
         // Listen for user input
         const userInput = await listen({
-          maxInitialSilence: 5000,
+          maxInitialSilence: 10_000,
           maxTailSilence: 1000,
         });
 
+        // Check if workflow was stopped during listen operation
+        if (!isWorkflowRunning()) {
+          console.log(
+            "Workflow stopped during listen, exiting conversation loop",
+          );
+          return;
+        }
+
         if (!userInput) {
+          // TODO prebuild this
+          if (!isWorkflowRunning()) {
+            return; // Exit if workflow was stopped
+          }
           await speak("I didn't catch that. Could you please repeat?");
           continue;
         }
@@ -63,21 +87,31 @@ export async function runMinimalFlow(): Promise<void> {
         const response = await llm.invoke(messages);
 
         console.log(JSON.stringify(response, null, 2));
-        const responseText = response.content as string;
+        const keeperResponse = JSON.parse(
+          response.content as string,
+        ) as KeeperReply;
 
         // Add AI response to conversation history
-        const aiMessage = new AIMessage(responseText);
+        const aiMessage = new AIMessage(keeperResponse.message);
         conversationHistory.push(aiMessage);
 
+        // Check if workflow is still active before speaking
+        if (!isWorkflowRunning()) {
+          console.log(
+            "Workflow stopped before speaking response, exiting conversation loop",
+          );
+          return;
+        }
+
         // Speak the response
-        await speak(responseText);
+        await speak(keeperResponse.message);
 
         // Log conversation for analytics
         if (CONVERSATION_CONFIG.enableDetailedLogging) {
           const turnNumber = Math.floor(conversationHistory.length / 2);
           console.log(`\n🔄 Turn ${turnNumber}:`);
           console.log(`👤 User: ${userInput}`);
-          console.log(`🤖 AI: ${responseText}`);
+          console.log(`🤖 AI: ${keeperResponse}`);
           console.log(
             `📊 Context: ${recentMessages.length} recent messages sent to LLM`,
           );
@@ -90,12 +124,42 @@ export async function runMinimalFlow(): Promise<void> {
           console.log("─".repeat(50));
         }
       } catch (error) {
+        // Check if this was an abort error
         if (error instanceof Error && error.message.includes("interrupted")) {
           throw error; // Re-throw interruption errors
         }
 
+        // Handle speech service shutdown errors gracefully
+        if (
+          error instanceof Error &&
+          error.message.includes("Speech server is shutting down")
+        ) {
+          console.log("Speech server shut down, exiting workflow gracefully");
+          return; // Exit gracefully instead of continuing
+        }
+
+        // Handle other speech service errors
+        if (error instanceof Error && error.message.includes("HTTP 503")) {
+          console.log(
+            "Speech service unavailable, exiting workflow gracefully",
+          );
+          return; // Exit gracefully instead of continuing
+        }
+
         console.error("Error in conversation loop:", error);
-        await speak("I encountered an error. Let's continue our conversation.");
+
+        // Only try to speak error message if workflow is still running
+        if (isWorkflowRunning()) {
+          try {
+            // TODO prebuild this
+            await speak(
+              "I encountered an error. Let's continue our conversation.",
+            );
+          } catch (speakError) {
+            // If we can't speak the error message, just log it and continue
+            console.error("Could not speak error message:", speakError);
+          }
+        }
       }
     }
 
@@ -117,5 +181,8 @@ export async function runMinimalFlow(): Promise<void> {
     } else {
       console.error("Error in minimal flow:", error);
     }
+  } finally {
+    // Ensure workflow is marked as inactive when we exit
+    setWorkflowActive(false);
   }
 }

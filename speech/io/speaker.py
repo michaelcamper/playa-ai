@@ -41,6 +41,22 @@ def configure(sample_rate: Optional[int] = None, blocksize: Optional[int] = None
 		_fade_ms = max(0, int(fade_ms))
 
 
+def pause_waiting_audio() -> None:
+	"""Pause the waiting audio to prevent interference during recording or other operations."""
+	global _idle_hold, _queued_samples
+	_idle_hold = True
+	# Clear any queued waiting audio for immediate effect
+	with _lock:
+		_deque.clear()
+		_queued_samples = 0
+
+
+def resume_waiting_audio() -> None:
+	"""Resume the waiting audio after operations are complete."""
+	global _idle_hold
+	_idle_hold = False
+
+
 def _callback(outdata, frames, time_info, status):
 	global _queued_samples
 	written = 0
@@ -213,6 +229,9 @@ def play_wav(path: str) -> Dict[str, Any]:
 	# small head padding to avoid first-sample cut
 	_enqueue(np.zeros((int(0.1 * _sample_rate), 1), dtype=np.float32))
 	for chunk in _iter_wav(path, 4096):
+		# Respect shutdown: stop enqueuing if close has been requested
+		if _waiting_stop.is_set():
+			break
 		_enqueue(chunk)
 	# Block until drained, then release waiting feeder
 	_wait_until_drain(shutdown_event=_waiting_stop)
@@ -249,6 +268,9 @@ def play_stream(chunks: Iterable[np.ndarray]) -> Dict[str, Any]:
 	_enqueue(first_arr)
 	# Enqueue the rest
 	for pcm in iterator:
+		# Respect shutdown: stop enqueuing if close has been requested
+		if _waiting_stop.is_set():
+			break
 		if pcm is None:
 			continue
 		arr = np.asarray(pcm, dtype=np.float32)

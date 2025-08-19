@@ -20,69 +20,87 @@ _shutdown_event = threading.Event()
 
 
 def register_operation(operation_id: str):
-    """Register an active audio operation."""
-    with _operation_lock:
-        _active_operations.add(operation_id)
+	"""Register an active audio operation."""
+	with _operation_lock:
+		_active_operations.add(operation_id)
 
 
 def unregister_operation(operation_id: str):
-    """Unregister a completed audio operation."""
-    with _operation_lock:
-        _active_operations.discard(operation_id)
+	"""Unregister a completed audio operation."""
+	with _operation_lock:
+		_active_operations.discard(operation_id)
 
 
 def terminate_all_operations():
-    """Terminate all active audio operations."""
-    with _operation_lock:
-        _shutdown_event.set()
-        # Clear all active operations
-        _active_operations.clear()
-    print(f"[speech] Terminated all active audio operations")
+	"""Terminate all active audio operations."""
+	with _operation_lock:
+		_shutdown_event.set()
+		# Clear all active operations
+		_active_operations.clear()
+	print(f"[speech] Terminated all active audio operations")
+
+
+def pause_waiting_audio():
+	"""Pause the waiting audio to prevent interference during recording."""
+	# Import here to avoid circular imports
+	from speech.io.speaker import pause_waiting_audio as speaker_pause
+	speaker_pause()
+
+
+def resume_waiting_audio():
+	"""Resume the waiting audio after recording is complete."""
+	# Import here to avoid circular imports
+	from speech.io.speaker import resume_waiting_audio as speaker_resume
+	speaker_resume()
 
 
 # Wrapper functions that pass shutdown event to speaker operations
 def _speaker_play_stream_with_shutdown(text: str):
-    """Wrapper for speaker.play_stream that supports shutdown interruption."""
-    # Import here to avoid circular imports
-    from speech.io.speaker import _wait_until_drain
-    
-    # Monkey patch the _wait_until_drain function temporarily
-    original_wait = _wait_until_drain
-    def interrupted_wait(*args, **kwargs):
-        return original_wait(*args, shutdown_event=_shutdown_event, **kwargs)
-    
-    try:
-        # Replace the function temporarily
-        import speech.io.speaker as speaker_module
-        speaker_module._wait_until_drain = interrupted_wait
-        
-        # Call the original function
-        return speaker_module.play_stream(xtts.stream(text))
-    finally:
-        # Restore the original function
-        speaker_module._wait_until_drain = original_wait
+	"""Wrapper for speaker.play_stream that supports shutdown interruption."""
+	# Import here to avoid circular imports
+	from speech.io.speaker import _wait_until_drain
+	
+	# Monkey patch the _wait_until_drain function temporarily
+	original_wait = _wait_until_drain
+	def interrupted_wait(*args, **kwargs):
+		# Remove any existing shutdown_event from kwargs to avoid conflicts
+		kwargs.pop('shutdown_event', None)
+		return original_wait(*args, shutdown_event=_shutdown_event, **kwargs)
+	
+	try:
+		# Replace the function temporarily
+		import speech.io.speaker as speaker_module
+		speaker_module._wait_until_drain = interrupted_wait
+		
+		# Call the original function
+		return speaker_module.play_stream(xtts.stream(text))
+	finally:
+		# Restore the original function
+		speaker_module._wait_until_drain = original_wait
 
 
 def _speaker_play_wav_with_shutdown(path: str):
-    """Wrapper for speaker.play_wav that supports shutdown interruption."""
-    # Import here to avoid circular imports
-    from speech.io.speaker import _wait_until_drain
-    
-    # Monkey patch the _wait_until_drain function temporarily
-    original_wait = _wait_until_drain
-    def interrupted_wait(*args, **kwargs):
-        return original_wait(*args, shutdown_event=_shutdown_event, **kwargs)
-    
-    try:
-        # Replace the function temporarily
-        import speech.io.speaker as speaker_module
-        speaker_module._wait_until_drain = interrupted_wait
-        
-        # Call the original function
-        return speaker_module.play_wav(path)
-    finally:
-        # Restore the original function
-        speaker_module._wait_until_drain = original_wait
+	"""Wrapper for speaker.play_wav that supports shutdown interruption."""
+	# Import here to avoid circular imports
+	from speech.io.speaker import _wait_until_drain
+	
+	# Monkey patch the _wait_until_drain function temporarily
+	original_wait = _wait_until_drain
+	def interrupted_wait(*args, **kwargs):
+		# Remove any existing shutdown_event from kwargs to avoid conflicts
+		kwargs.pop('shutdown_event', None)
+		return original_wait(*args, shutdown_event=_shutdown_event, **kwargs)
+	
+	try:
+		# Replace the function temporarily
+		import speech.io.speaker as speaker_module
+		speaker_module._wait_until_drain = interrupted_wait
+		
+		# Call the original function
+		return speaker_module.play_wav(path)
+	finally:
+		# Restore the original function
+		speaker_module._wait_until_drain = original_wait
 
 
 @asynccontextmanager
@@ -127,7 +145,7 @@ async def speak(raw_bytes: bytes = Body(...)):
 	try:
 		# Check if we're shutting down
 		if _shutdown_event.is_set():
-			return JSONResponse({"error": "Speech server is shutting down"}, status_code=503)
+			return JSONResponse({"ok": False, "error": "Speech server is shutting down"}, status_code=503)
 		
 		res = await asyncio.to_thread(lambda: _speaker_play_stream_with_shutdown(text))
 		if isinstance(res, dict) and not res.get("ok", False):
@@ -145,7 +163,7 @@ async def play(raw_bytes: bytes = Body(...)):
 	# Accept plain body containing the file name (e.g., "welcome" or "welcome.wav")
 	name = (raw_bytes.decode("utf-8", "ignore").strip())
 	if not name:
-		return JSONResponse({"error": "name is required"}, status_code=400)
+		return JSONResponse({"ok": False, "error": "name is required"}, status_code=400)
 
 	import os as _os
 	name = _os.path.basename(name)
@@ -153,7 +171,7 @@ async def play(raw_bytes: bytes = Body(...)):
 		name = f"{name}.wav"
 	path = _os.path.join(ASSETS_DIR, name)
 	if not _os.path.exists(path):
-		return JSONResponse({"error": "file not found", "path": path}, status_code=404)
+		return JSONResponse({"ok": False, "error": "file not found", "path": path}, status_code=404)
 
 	operation_id = f"play_{id(name)}"
 	register_operation(operation_id)
@@ -161,7 +179,7 @@ async def play(raw_bytes: bytes = Body(...)):
 	try:
 		# Check if we're shutting down
 		if _shutdown_event.is_set():
-			return JSONResponse({"error": "Speech server is shutting down"}, status_code=503)
+			return JSONResponse({"ok": False, "error": "Speech server is shutting down"}, status_code=503)
 		
 		res = await asyncio.to_thread(_speaker_play_wav_with_shutdown, path)
 		if isinstance(res, dict) and not res.get("ok", False):
@@ -177,9 +195,9 @@ async def generate(payload: dict = Body(...)):
 	name = (payload.get("name") or "").strip()
 	text = (payload.get("text") or "").strip()
 	if not name:
-		return JSONResponse({"error": "name is required"}, status_code=400)
+		return JSONResponse({"ok": False, "error": "name is required"}, status_code=400)
 	if not text:
-		return JSONResponse({"error": "text is required"}, status_code=400)
+		return JSONResponse({"ok": False, "error": "text is required"}, status_code=400)
 
 	import os as _os
 	name = _os.path.basename(name)
@@ -193,7 +211,7 @@ async def generate(payload: dict = Body(...)):
 	try:
 		# Check if we're shutting down
 		if _shutdown_event.is_set():
-			return JSONResponse({"error": "Speech server is shutting down"}, status_code=503)
+			return JSONResponse({"ok": False, "error": "Speech server is shutting down"}, status_code=503)
 		
 		res = await asyncio.to_thread(xtts.synthesize_to_wav, text, path)
 		if not res.get("ok"):
@@ -219,10 +237,17 @@ async def endpoint_audio_close():
 	# Terminate all active operations immediately
 	terminate_all_operations()
 	
+	# Set shutdown event to interrupt any ongoing microphone operations
+	_shutdown_event.set()
+	
 	# Close the speaker
 	res = await asyncio.to_thread(speaker.close)
 	if isinstance(res, dict) and not res.get("ok", False):
 		return JSONResponse(res, status_code=500)
+	
+	# Small delay to ensure microphone operations are fully terminated
+	await asyncio.sleep(0.1)
+	
 	return Response(status_code=204)
 
 
@@ -233,7 +258,7 @@ async def listen(payload: dict = Body(...)):
 		max_initial = int(payload.get("maxInitialSilence", 0))
 		max_tail = int(payload.get("maxTailSilence", 0))
 	except Exception:
-		return JSONResponse({"error": "Invalid parameters"}, status_code=400)
+		return JSONResponse({"ok": False, "error": "Invalid parameters"}, status_code=400)
 	
 	operation_id = f"listen_{id(payload)}"
 	register_operation(operation_id)
@@ -241,7 +266,10 @@ async def listen(payload: dict = Body(...)):
 	try:
 		# Check if we're shutting down
 		if _shutdown_event.is_set():
-			return JSONResponse({"error": "Speech server is shutting down"}, status_code=503)
+			return JSONResponse({"ok": False, "error": "Speech server is shutting down"}, status_code=503)
+		
+		# Pause waiting audio during recording to prevent interference
+		pause_waiting_audio()
 		
 		# Capture then transcribe with error handling
 		try:
@@ -249,13 +277,16 @@ async def listen(payload: dict = Body(...)):
 			
 			# Check again after capture (in case shutdown happened during capture)
 			if _shutdown_event.is_set():
-				return JSONResponse({"error": "Speech server is shutting down"}, status_code=503)
+				return JSONResponse({"ok": False, "error": "Speech server is shutting down"}, status_code=503)
 			
 			text = await asyncio.to_thread(whisper.transcribe, audio, "en")
 			return Response(content=(text or ""), media_type="text/plain")
 		except Exception as e:
 			# Surface the error for easier debugging instead of generic 500
-			return JSONResponse({"ok": False, "error": "listen_failed", "detail": str(e)}, status_code=500)
+			return JSONResponse({"ok": False, "error": "listen_failed", "detail": str(e), "error": str(e)}, status_code=500)
+		finally:
+			# Resume waiting audio after recording is complete
+			resume_waiting_audio()
 	finally:
 		unregister_operation(operation_id)
 
@@ -267,7 +298,7 @@ async def record(payload: dict = Body(...)):
 		max_initial = int(payload.get("maxInitialSilence", 0))
 		max_tail = int(payload.get("maxTailSilence", 0))
 	except Exception:
-		return JSONResponse({"error": "Invalid parameters"}, status_code=400)
+		return JSONResponse({"ok": False, "error": "Invalid parameters"}, status_code=400)
 	
 	operation_id = f"record_{id(payload)}"
 	register_operation(operation_id)
@@ -275,7 +306,10 @@ async def record(payload: dict = Body(...)):
 	try:
 		# Check if we're shutting down
 		if _shutdown_event.is_set():
-			return JSONResponse({"error": "Speech server is shutting down"}, status_code=503)
+			return JSONResponse({"ok": False, "error": "Speech server is shutting down"}, status_code=503)
+		
+		# Pause waiting audio during recording to prevent interference
+		pause_waiting_audio()
 		
 		# Capture and encode to WAV
 		import io as _io, wave as _wave, numpy as _np
@@ -283,7 +317,7 @@ async def record(payload: dict = Body(...)):
 		
 		# Check again after capture
 		if _shutdown_event.is_set():
-			return JSONResponse({"error": "Speech server is shutting down"}, status_code=503)
+			return JSONResponse({"ok": False, "error": "Speech server is shutting down"}, status_code=503)
 		
 		buf = _io.BytesIO()
 		with _wave.open(buf, "wb") as wf:
@@ -294,6 +328,8 @@ async def record(payload: dict = Body(...)):
 		data = buf.getvalue()
 		return Response(content=data, media_type="audio/wav")
 	finally:
+		# Resume waiting audio after recording is complete
+		resume_waiting_audio()
 		unregister_operation(operation_id)
 
 

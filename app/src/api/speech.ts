@@ -29,11 +29,11 @@ export async function speak(text: string): Promise<void> {
   }
 }
 
-export async function play(path: string): Promise<void> {
+export async function play(name: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/play`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path }),
+    // Send raw text body as the server expects plain bytes (filename)
+    body: name,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
